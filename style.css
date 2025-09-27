@@ -9,6 +9,9 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
   font-size: 14px;
   line-height: 1.4;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
 }
 
 /* Color Scheme */
@@ -29,24 +32,15 @@ body {
   display: none !important;
 }
 
-/* Floating Widget */
+/* Main Widget - fills entire popup window */
 #posture-widget {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  width: 200px;
-  height: auto; /* Auto height to fit content */
-  min-height: 220px; /* Ensure enough space for all sections */
+  width: 100%;
+  height: 100vh;
   background: var(--color-background);
-  border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
   display: flex;
   flex-direction: column;
-  overflow: hidden; /* Keep for rounded corners */
-  z-index: 9999;
   transition:
     background-color var(--transition-speed) ease,
-    transform 0.1s ease,
     opacity var(--transition-speed) ease;
 }
 
@@ -64,68 +58,39 @@ body {
   background: linear-gradient(135deg, var(--color-background) 0%, rgba(245, 158, 11, 0.2) 100%);
 }
 
-/* Minimized State */
-#posture-widget.minimized {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-}
-
-#posture-widget.minimized .status,
-#posture-widget.minimized .controls {
-  display: none;
-}
-
-#posture-widget.minimized .drag-handle .title {
-  display: none;
-}
-
-/* Drag Handle / Header */
-.drag-handle {
+/* Header */
+header {
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
-  padding: 8px 12px;
+  padding: 12px;
   background: var(--color-surface);
-  cursor: move;
-  user-select: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.drag-handle .title {
-  font-size: 12px;
+header .title {
+  font-size: 13px;
   font-weight: 600;
   color: var(--color-text);
   letter-spacing: 0.5px;
-}
-
-.btn-minimize {
-  background: none;
-  border: none;
-  color: var(--color-text-dim);
-  cursor: pointer;
-  font-size: 16px;
-  padding: 0 4px;
-  transition: color 0.2s;
-}
-
-.btn-minimize:hover {
-  color: var(--color-text);
+  text-transform: uppercase;
 }
 
 /* Status Section */
 .status {
-  /* Removed flex: 1 to prevent taking all space */
+  height: 255px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 8px;
+  padding: 20px;
   color: var(--color-text);
+  box-sizing: border-box;
 }
 
 .status-icon {
-  font-size: 28px;
-  margin-bottom: 4px;
+  font-size: 48px;
+  margin-bottom: 12px;
   transition: transform var(--transition-speed) ease;
 }
 
@@ -143,35 +108,34 @@ body {
 }
 
 .status-text {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 500;
-  margin-bottom: 2px;
+  margin-bottom: 4px;
 }
 
 .angle-display {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--color-text-dim);
   font-family: 'SF Mono', 'Monaco', 'Courier New', monospace;
+  min-height: 17px;
 }
 
 /* Controls Section */
 .controls {
-  padding: 10px;
+  padding: 16px;
   background: var(--color-surface);
   border-top: 1px solid rgba(255, 255, 255, 0.1);
-  /* Ensure this section is visible */
-  flex-shrink: 0;
 }
 
 .threshold-control {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  margin-bottom: 8px;
+  gap: 6px;
+  margin-bottom: 12px;
 }
 
 .threshold-label {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--color-text-dim);
   display: flex;
   justify-content: space-between;
@@ -185,19 +149,19 @@ body {
 
 .threshold-slider {
   width: 100%;
-  height: 4px;
+  height: 6px;
   -webkit-appearance: none;
   appearance: none;
   background: rgba(255, 255, 255, 0.1);
-  border-radius: 2px;
+  border-radius: 3px;
   outline: none;
 }
 
 .threshold-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 12px;
-  height: 12px;
+  width: 16px;
+  height: 16px;
   background: var(--color-text);
   border-radius: 50%;
   cursor: pointer;
@@ -209,8 +173,8 @@ body {
 }
 
 .threshold-slider::-moz-range-thumb {
-  width: 12px;
-  height: 12px;
+  width: 16px;
+  height: 16px;
   background: var(--color-text);
   border-radius: 50%;
   cursor: pointer;
@@ -220,19 +184,19 @@ body {
 /* Button Controls */
 .buttons {
   display: flex;
-  gap: 8px;
+  gap: 12px;
   justify-content: center;
 }
 
 .buttons button {
-  background: rgba(255, 255, 255, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.25);
   color: var(--color-text);
-  width: 40px;
-  height: 32px;
-  border-radius: 6px;
+  width: 60px;
+  height: 40px;
+  border-radius: 8px;
   cursor: pointer;
-  font-size: 16px;
+  font-size: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -243,71 +207,50 @@ body {
 }
 
 .buttons button:hover {
-  background: rgba(255, 255, 255, 0.35);
-  border-color: rgba(255, 255, 255, 0.5);
-  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.4);
+  transform: translateY(-2px);
 }
 
 .buttons button:active {
   transform: translateY(0);
 }
 
-/* Make play button more prominent */
+/* Play/Pause button prominence */
 .btn-toggle {
   background: var(--color-good) !important;
   border-color: var(--color-good) !important;
   color: white !important;
   font-weight: bold;
-  animation: pulse-play 2s infinite;
 }
 
 .btn-toggle:hover {
   background: #0ea571 !important;
-  transform: scale(1.1);
-  animation: none;
-}
-
-@keyframes pulse-play {
-  0%,
-  100% {
-    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
-  }
-  50% {
-    box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.3);
-  }
+  transform: scale(1.05);
 }
 
 .btn-toggle.playing {
   background: var(--color-bad) !important;
   border-color: var(--color-bad) !important;
-  animation: none;
 }
 
 .btn-mute.muted {
-  color: var(--color-text-dim);
-  text-decoration: line-through;
+  opacity: 0.5;
+}
+
+/* Debug button active state */
+.btn-debug.active {
+  background: var(--color-detecting) !important;
+  color: var(--color-background) !important;
 }
 
 /* Animations */
 @keyframes pulse-warning {
   0%,
   100% {
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    background: linear-gradient(135deg, var(--color-background) 0%, rgba(239, 68, 68, 0.2) 100%);
   }
   50% {
-    box-shadow: 0 8px 32px rgba(239, 68, 68, 0.4);
+    background: linear-gradient(135deg, var(--color-background) 0%, rgba(239, 68, 68, 0.3) 100%);
   }
-}
-
-/* Dragging State */
-#posture-widget.dragging {
-  opacity: 0.8;
-  transform: scale(1.02);
-  cursor: move;
-}
-
-/* Debug Mode Indicator */
-.btn-debug.active {
-  background: var(--color-detecting);
-  color: var(--color-background);
 }

@@ -236,6 +236,239 @@ describe('Canvas Drawing', () => {
   })
 })
 
+describe('Window Sizing', () => {
+  // Minimal mock setup for window and DOM
+  function setupMocks() {
+    // Mock window with sizing behavior
+    global.window = {
+      outerWidth: 250,
+      outerHeight: 400,
+      innerWidth: 210,
+      innerHeight: 340,
+      resizeTo: function (width, height) {
+        this.outerWidth = width
+        this.outerHeight = height
+        // Simulate browser chrome (40px width, 60px height)
+        this.innerWidth = width - 40
+        this.innerHeight = height - 60
+      },
+    }
+
+    // Minimal DOM mock - just enough to not crash
+    global.document = {
+      querySelector: () => null,
+      getElementById: () => null, // Mock for webcam video element
+      createElement: (tagName) => {
+        const element = {
+          style: {},
+          className: '',
+          innerHTML: '',
+          appendChild: () => {},
+          remove: () => {},
+          play: () => {}, // For video element
+        }
+        // Special handling for canvas
+        if (tagName === 'canvas') {
+          element.getContext = () => ({
+            clearRect: () => {},
+            beginPath: () => {},
+            arc: () => {},
+            fill: () => {},
+            stroke: () => {},
+            moveTo: () => {},
+            lineTo: () => {},
+            fillText: () => {},
+            setLineDash: () => {},
+          })
+        }
+        return element
+      },
+      body: {
+        appendChild: () => {},
+      },
+    }
+  }
+
+  // Clean up mocks after each test
+  function cleanupMocks() {
+    delete global.window
+    delete global.document
+  }
+
+  test('stores original window dimensions on first show', () => {
+    setupMocks()
+
+    // Load DebugView with mocked environment
+    const DebugView = require('./debug-view.js')
+    const debugView = new DebugView()
+
+    // Initially, dimensions should be null
+    assertEqual(debugView.originalOuterWidth, null)
+    assertEqual(debugView.originalOuterHeight, null)
+
+    // Show debug view
+    debugView.show()
+
+    // Should store original dimensions
+    assertEqual(debugView.originalOuterWidth, 250)
+    assertEqual(debugView.originalOuterHeight, 400)
+
+    cleanupMocks()
+  })
+
+  test('restores exact original dimensions on hide', () => {
+    setupMocks()
+
+    const DebugView = require('./debug-view.js')
+    const debugView = new DebugView()
+
+    // Show debug (captures 250x400)
+    debugView.show()
+
+    // Window was resized for debug view
+    assert(window.outerWidth > 250, 'Window should be expanded for debug')
+    assert(window.outerHeight > 400, 'Window should be expanded for debug')
+
+    // Hide debug
+    debugView.hide()
+
+    // Should restore to original dimensions
+    assertEqual(window.outerWidth, 250)
+    assertEqual(window.outerHeight, 400)
+
+    cleanupMocks()
+  })
+
+  test('preserves user-resized dimensions', () => {
+    setupMocks()
+
+    const DebugView = require('./debug-view.js')
+    const debugView = new DebugView()
+
+    // User resizes window before opening debug
+    window.resizeTo(300, 450)
+
+    // Show debug (should capture 300x450)
+    debugView.show()
+    assertEqual(debugView.originalOuterWidth, 300)
+    assertEqual(debugView.originalOuterHeight, 450)
+
+    // Hide debug
+    debugView.hide()
+
+    // Should restore to user's dimensions, not default
+    assertEqual(window.outerWidth, 300)
+    assertEqual(window.outerHeight, 450)
+
+    cleanupMocks()
+  })
+
+  test('handles multiple show/hide cycles correctly', () => {
+    setupMocks()
+
+    const DebugView = require('./debug-view.js')
+    const debugView = new DebugView()
+
+    // First cycle
+    debugView.show()
+    assertEqual(debugView.originalOuterWidth, 250)
+    debugView.hide()
+    assertEqual(window.outerWidth, 250)
+
+    // User resizes between cycles
+    window.resizeTo(275, 425)
+
+    // Second cycle - should capture new dimensions
+    debugView.show()
+    assertEqual(debugView.originalOuterWidth, 275)
+    assertEqual(debugView.originalOuterHeight, 425)
+    debugView.hide()
+    assertEqual(window.outerWidth, 275)
+    assertEqual(window.outerHeight, 425)
+
+    cleanupMocks()
+  })
+
+  test('falls back to defaults when dimensions not captured', () => {
+    setupMocks()
+
+    const DebugView = require('./debug-view.js')
+    const debugView = new DebugView()
+
+    // Simulate dimensions not being captured
+    debugView.state = 'off'
+    debugView.originalOuterWidth = null
+    debugView.originalOuterHeight = null
+
+    // Track console warnings
+    let warningLogged = false
+    const originalWarn = console.warn
+    console.warn = (msg) => {
+      if (msg.includes('Original dimensions not captured')) {
+        warningLogged = true
+      }
+    }
+
+    // Hide without show (should use fallback)
+    debugView.hide()
+
+    // Should use default dimensions
+    assertEqual(window.outerWidth, 250)
+    assertEqual(window.outerHeight, 400)
+    assert(warningLogged, 'Should log warning when using fallback')
+
+    // Restore console.warn
+    console.warn = originalWarn
+    cleanupMocks()
+  })
+
+  test('resizes to expanded view with chrome compensation', () => {
+    setupMocks()
+
+    const DebugView = require('./debug-view.js')
+    const debugView = new DebugView()
+
+    // Show debug view
+    debugView.show()
+
+    // Calculate expected dimensions (500 + chrome width, 600 + chrome height)
+    const expectedWidth = 500 + (window.outerWidth - window.innerWidth)
+    const expectedHeight = 600 + (window.outerHeight - window.innerHeight)
+
+    // Verify window was resized for debug view
+    assertEqual(window.outerWidth, expectedWidth)
+    assertEqual(window.outerHeight, expectedHeight)
+
+    // Verify inner dimensions are correct
+    assertEqual(window.innerWidth, 500)
+    assertEqual(window.innerHeight, 600)
+
+    cleanupMocks()
+  })
+
+  test('toggle alternates between show and hide correctly', () => {
+    setupMocks()
+
+    const DebugView = require('./debug-view.js')
+    const debugView = new DebugView()
+
+    // Initial state
+    assertEqual(debugView.state, 'off')
+
+    // First toggle - should show
+    debugView.toggle()
+    assertEqual(debugView.state, 'expanded')
+    assertEqual(debugView.originalOuterWidth, 250)
+
+    // Second toggle - should hide
+    debugView.toggle()
+    assertEqual(debugView.state, 'off')
+    assertEqual(window.outerWidth, 250)
+
+    cleanupMocks()
+  })
+})
+
 // Export helpers for use in implementation
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = DebugHelpers
