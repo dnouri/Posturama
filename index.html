@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Posturama - Posture Monitor</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <!-- Hidden video element for webcam feed -->
+    <video id="webcam" autoplay playsinline muted hidden></video>
+
+    <!-- Floating widget -->
+    <aside id="posture-widget" data-posture="detecting">
+      <!-- Drag handle -->
+      <header class="drag-handle">
+        <span class="title">Posturama</span>
+        <button class="btn-minimize" aria-label="Minimize">_</button>
+      </header>
+
+      <!-- Status display -->
+      <section class="status">
+        <div class="status-icon">⏳</div>
+        <div class="status-text">Initializing...</div>
+        <div class="angle-display"></div>
+      </section>
+
+      <!-- Controls -->
+      <section class="controls">
+        <label class="threshold-control">
+          <span class="threshold-label">Threshold: <span class="threshold-value">5°</span></span>
+          <input type="range" class="threshold-slider" min="3" max="8" value="5" step="0.5" />
+        </label>
+
+        <div class="buttons">
+          <button class="btn-toggle" aria-label="Start monitoring" title="Start posture monitoring">
+            ▶
+          </button>
+          <button class="btn-mute" aria-label="Mute alerts" title="Toggle sound alerts">🔊</button>
+          <button class="btn-debug" aria-label="Debug view" title="Open debug view">🐛</button>
+        </div>
+      </section>
+    </aside>
+
+    <!-- Load MediaPipe as module and expose to window -->
+    <script type="module">
+      import {
+        FilesetResolver,
+        FaceLandmarker,
+      } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/vision_bundle.js'
+
+      // Expose to global scope for other scripts
+      window.FilesetResolver = FilesetResolver
+      window.FaceLandmarker = FaceLandmarker
+
+      // Signal that MediaPipe is ready
+      window.mediaPipeReady = true
+      window.dispatchEvent(new Event('mediapipe-ready'))
+    </script>
+
+    <!-- Load modules -->
+    <script src="face-detector.js"></script>
+    <script src="posture-calculator.js"></script>
+    <script src="grace-period.js"></script>
+    <script src="audio-alert.js"></script>
+    <script src="debug-view.js"></script>
+
+    <!-- Load app JavaScript -->
+    <script src="app.js"></script>
+  </body>
+</html>

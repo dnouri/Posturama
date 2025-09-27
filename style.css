@@ -1,0 +1,313 @@
+/* CSS Reset and Base */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+/* Color Scheme */
+:root {
+  --color-good: #10b981;
+  --color-bad: #ef4444;
+  --color-detecting: #f59e0b;
+  --color-neutral: #6b7280;
+  --color-background: #1f2937;
+  --color-surface: #374151;
+  --color-text: #f3f4f6;
+  --color-text-dim: #9ca3af;
+  --transition-speed: 0.3s;
+}
+
+/* Hidden Elements */
+[hidden] {
+  display: none !important;
+}
+
+/* Floating Widget */
+#posture-widget {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 200px;
+  height: auto; /* Auto height to fit content */
+  min-height: 220px; /* Ensure enough space for all sections */
+  background: var(--color-background);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; /* Keep for rounded corners */
+  z-index: 9999;
+  transition:
+    background-color var(--transition-speed) ease,
+    transform 0.1s ease,
+    opacity var(--transition-speed) ease;
+}
+
+/* Widget States */
+#posture-widget[data-posture='good'] {
+  background: linear-gradient(135deg, var(--color-background) 0%, rgba(16, 185, 129, 0.2) 100%);
+}
+
+#posture-widget[data-posture='bad'] {
+  background: linear-gradient(135deg, var(--color-background) 0%, rgba(239, 68, 68, 0.2) 100%);
+  animation: pulse-warning 2s infinite;
+}
+
+#posture-widget[data-posture='detecting'] {
+  background: linear-gradient(135deg, var(--color-background) 0%, rgba(245, 158, 11, 0.2) 100%);
+}
+
+/* Minimized State */
+#posture-widget.minimized {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+}
+
+#posture-widget.minimized .status,
+#posture-widget.minimized .controls {
+  display: none;
+}
+
+#posture-widget.minimized .drag-handle .title {
+  display: none;
+}
+
+/* Drag Handle / Header */
+.drag-handle {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--color-surface);
+  cursor: move;
+  user-select: none;
+}
+
+.drag-handle .title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text);
+  letter-spacing: 0.5px;
+}
+
+.btn-minimize {
+  background: none;
+  border: none;
+  color: var(--color-text-dim);
+  cursor: pointer;
+  font-size: 16px;
+  padding: 0 4px;
+  transition: color 0.2s;
+}
+
+.btn-minimize:hover {
+  color: var(--color-text);
+}
+
+/* Status Section */
+.status {
+  /* Removed flex: 1 to prevent taking all space */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  color: var(--color-text);
+}
+
+.status-icon {
+  font-size: 28px;
+  margin-bottom: 4px;
+  transition: transform var(--transition-speed) ease;
+}
+
+#posture-widget[data-posture='good'] .status-icon {
+  color: var(--color-good);
+}
+
+#posture-widget[data-posture='bad'] .status-icon {
+  color: var(--color-bad);
+  transform: scale(1.1);
+}
+
+#posture-widget[data-posture='detecting'] .status-icon {
+  color: var(--color-detecting);
+}
+
+.status-text {
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+
+.angle-display {
+  font-size: 11px;
+  color: var(--color-text-dim);
+  font-family: 'SF Mono', 'Monaco', 'Courier New', monospace;
+}
+
+/* Controls Section */
+.controls {
+  padding: 10px;
+  background: var(--color-surface);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  /* Ensure this section is visible */
+  flex-shrink: 0;
+}
+
+.threshold-control {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.threshold-label {
+  font-size: 11px;
+  color: var(--color-text-dim);
+  display: flex;
+  justify-content: space-between;
+}
+
+.threshold-value {
+  color: var(--color-text);
+  font-weight: 500;
+  font-family: 'SF Mono', 'Monaco', 'Courier New', monospace;
+}
+
+.threshold-slider {
+  width: 100%;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  outline: none;
+}
+
+.threshold-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  background: var(--color-text);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.threshold-slider::-webkit-slider-thumb:hover {
+  background: var(--color-good);
+}
+
+.threshold-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  background: var(--color-text);
+  border-radius: 50%;
+  cursor: pointer;
+  border: none;
+}
+
+/* Button Controls */
+.buttons {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.buttons button {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: var(--color-text);
+  width: 40px;
+  height: 32px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    background 0.2s,
+    transform 0.1s,
+    border-color 0.2s;
+}
+
+.buttons button:hover {
+  background: rgba(255, 255, 255, 0.35);
+  border-color: rgba(255, 255, 255, 0.5);
+  transform: translateY(-1px);
+}
+
+.buttons button:active {
+  transform: translateY(0);
+}
+
+/* Make play button more prominent */
+.btn-toggle {
+  background: var(--color-good) !important;
+  border-color: var(--color-good) !important;
+  color: white !important;
+  font-weight: bold;
+  animation: pulse-play 2s infinite;
+}
+
+.btn-toggle:hover {
+  background: #0ea571 !important;
+  transform: scale(1.1);
+  animation: none;
+}
+
+@keyframes pulse-play {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.3);
+  }
+}
+
+.btn-toggle.playing {
+  background: var(--color-bad) !important;
+  border-color: var(--color-bad) !important;
+  animation: none;
+}
+
+.btn-mute.muted {
+  color: var(--color-text-dim);
+  text-decoration: line-through;
+}
+
+/* Animations */
+@keyframes pulse-warning {
+  0%,
+  100% {
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  }
+  50% {
+    box-shadow: 0 8px 32px rgba(239, 68, 68, 0.4);
+  }
+}
+
+/* Dragging State */
+#posture-widget.dragging {
+  opacity: 0.8;
+  transform: scale(1.02);
+  cursor: move;
+}
+
+/* Debug Mode Indicator */
+.btn-debug.active {
+  background: var(--color-detecting);
+  color: var(--color-background);
+}

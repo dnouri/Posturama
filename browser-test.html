@@ -1,0 +1,111 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Browser Integration Tests - Posturama</title>
+    <style>
+      body {
+        font-family: 'SF Mono', 'Monaco', 'Courier New', monospace;
+        padding: 20px;
+        background: #1a1a1a;
+        color: #e0e0e0;
+      }
+      h1 {
+        color: #4fc3f7;
+        border-bottom: 2px solid #333;
+        padding-bottom: 10px;
+      }
+      #test-results {
+        padding: 20px;
+        margin: 20px 0;
+        border-radius: 8px;
+        font-size: 18px;
+        text-align: center;
+      }
+      #test-results.pass {
+        background: #2e7d32;
+        color: white;
+      }
+      #test-results.fail {
+        background: #c62828;
+        color: white;
+      }
+      #console-output {
+        background: #2a2a2a;
+        padding: 15px;
+        border-radius: 8px;
+        white-space: pre-wrap;
+        font-size: 14px;
+        max-height: 500px;
+        overflow-y: auto;
+      }
+      .info {
+        background: #37474f;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>🧪 Browser Integration Tests</h1>
+
+    <div class="info">
+      <p>
+        <strong>Purpose:</strong> These tests verify that all dependencies load correctly in the
+        browser.
+      </p>
+      <p><strong>What we're testing:</strong></p>
+      <ul>
+        <li>MediaPipe library loads from CDN</li>
+        <li>All global objects are accessible</li>
+        <li>Modules can be instantiated</li>
+        <li>DOM elements exist</li>
+        <li>Basic calculations work</li>
+      </ul>
+    </div>
+
+    <div id="test-results">Running tests...</div>
+
+    <h2>Console Output:</h2>
+    <div id="console-output"></div>
+
+    <!-- Hidden elements needed for tests -->
+    <video id="webcam" hidden></video>
+    <aside id="posture-widget" data-posture="detecting" hidden></aside>
+
+    <!-- Load all dependencies exactly as in main app -->
+    <script type="module">
+      import {
+        FilesetResolver,
+        FaceLandmarker,
+      } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/vision_bundle.js'
+      window.FilesetResolver = FilesetResolver
+      window.FaceLandmarker = FaceLandmarker
+      window.mediaPipeReady = true
+      window.dispatchEvent(new Event('mediapipe-ready'))
+    </script>
+    <script src="face-detector.js"></script>
+    <script src="posture-calculator.js"></script>
+    <script src="app.js"></script>
+
+    <!-- Load test suite -->
+    <script src="browser.test.js"></script>
+
+    <script>
+      // Capture console output
+      const consoleOutput = document.getElementById('console-output')
+      const originalLog = console.log
+      const originalError = console.error
+
+      console.log = function (...args) {
+        originalLog.apply(console, args)
+        consoleOutput.innerHTML += args.join(' ') + '\n'
+      }
+
+      console.error = function (...args) {
+        originalError.apply(console, args)
+        consoleOutput.innerHTML += '<span style="color: #ff5252;">' + args.join(' ') + '</span>\n'
+      }
+    </script>
+  </body>
+</html>

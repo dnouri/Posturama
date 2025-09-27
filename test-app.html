@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Posturama - App Test</title>
+    <style>
+      body {
+        font-family: monospace;
+        padding: 20px;
+        background: #1a1a1a;
+        color: #0f0;
+      }
+      h1 {
+        color: #0ff;
+      }
+      .test {
+        margin: 10px 0;
+      }
+      .pass {
+        color: #0f0;
+      }
+      .fail {
+        color: #f00;
+      }
+      .info {
+        color: #ff0;
+      }
+      pre {
+        background: #000;
+        padding: 10px;
+        border: 1px solid #333;
+        overflow-x: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Posturama App Test</h1>
+    <div id="results"></div>
+
+    <!-- Load the app normally -->
+    <video id="webcam" autoplay playsinline muted hidden></video>
+    <aside id="posture-widget" data-posture="detecting" style="display: none">
+      <header class="drag-handle">
+        <span class="title">Posturama</span>
+        <button class="btn-minimize">_</button>
+      </header>
+      <section class="status">
+        <div class="status-icon">⏳</div>
+        <div class="status-text">Test Mode</div>
+        <div class="angle-display"></div>
+      </section>
+      <section class="controls">
+        <label class="threshold-control">
+          <span class="threshold-label">Threshold: <span class="threshold-value">15°</span></span>
+          <input type="range" class="threshold-slider" min="5" max="30" value="15" step="1" />
+        </label>
+        <div class="buttons">
+          <button class="btn-toggle">▶</button>
+          <button class="btn-mute">🔊</button>
+          <button class="btn-debug">🐛</button>
+        </div>
+      </section>
+    </aside>
+
+    <!-- Load MediaPipe -->
+    <script type="module">
+      import {
+        FilesetResolver,
+        FaceLandmarker,
+      } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/vision_bundle.js'
+      window.FilesetResolver = FilesetResolver
+      window.FaceLandmarker = FaceLandmarker
+      window.mediaPipeReady = true
+      window.dispatchEvent(new Event('mediapipe-ready'))
+    </script>
+
+    <!-- Load modules -->
+    <script src="face-detector.js"></script>
+    <script src="posture-calculator.js"></script>
+    <script src="grace-period.js"></script>
+    <script src="audio-alert.js"></script>
+    <script src="app.js"></script>
+
+    <script>
+      const results = document.getElementById('results')
+      const tests = []
+      let testsPassed = 0
+      let testsFailed = 0
+
+      function log(message, className = '') {
+        const div = document.createElement('div')
+        div.className = `test ${className}`
+        div.textContent = message
+        results.appendChild(div)
+      }
+
+      function runTest(name, fn) {
+        try {
+          const result = fn()
+          if (result === false) {
+            throw new Error('Test returned false')
+          }
+          log(`✅ ${name}`, 'pass')
+          testsPassed++
+          return true
+        } catch (error) {
+          log(`❌ ${name}: ${error.message}`, 'fail')
+          testsFailed++
+          return false
+        }
+      }
+
+      async function runAsyncTest(name, fn) {
+        try {
+          const result = await fn()
+          if (result === false) {
+            throw new Error('Test returned false')
+          }
+          log(`✅ ${name}`, 'pass')
+          testsPassed++
+          return true
+        } catch (error) {
+          log(`❌ ${name}: ${error.message}`, 'fail')
+          testsFailed++
+          return false
+        }
+      }
+
+      // Wait for everything to load
+      window.addEventListener('load', async () => {
+        log('Starting app tests...', 'info')
+
+        // Wait for MediaPipe
+        await new Promise((resolve) => {
+          if (window.mediaPipeReady) {
+            resolve()
+          } else {
+            window.addEventListener('mediapipe-ready', resolve)
+          }
+        })
+
+        // Module loading tests
+        runTest('MediaPipe loaded', () => {
+          return typeof FilesetResolver !== 'undefined' && typeof FaceLandmarker !== 'undefined'
+        })
+
+        runTest('GracePeriod module loaded', () => {
+          return typeof GracePeriod !== 'undefined'
+        })
+
+        runTest('AudioAlert module loaded', () => {
+          return typeof AudioAlert !== 'undefined'
+        })
+
+        runTest('PostureCalculator loaded', () => {
+          return typeof PostureCalculator !== 'undefined'
+        })
+
+        runTest('FaceDetector loaded', () => {
+          return typeof FaceDetector !== 'undefined'
+        })
+
+        // App initialization tests
+        runTest('PosturamaApp exists', () => {
+          return typeof PosturamaApp !== 'undefined'
+        })
+
+        runTest('App instance created', () => {
+          return typeof window.posturamaApp !== 'undefined'
+        })
+
+        // Grace period functionality
+        runTest('GracePeriod.evaluate works', () => {
+          GracePeriod.reset()
+          const result = GracePeriod.evaluate(true, 1000)
+          return result.shouldAlert === false && result.isInGracePeriod === true
+        })
+
+        runTest('GracePeriod alerts after timeout', () => {
+          GracePeriod.reset()
+          GracePeriod.evaluate(true, 0)
+          const result = GracePeriod.evaluate(true, 3001)
+          return result.shouldAlert === true && result.alertType === 'initial'
+        })
+
+        // Audio system tests
+        await runAsyncTest('AudioAlert initializes', async () => {
+          const audio = new AudioAlert()
+          const result = await audio.initialize()
+          audio.dispose()
+          return typeof result === 'boolean'
+        })
+
+        // Posture calculation tests
+        runTest('PostureCalculator works', () => {
+          const landmarks = new Array(478).fill({ x: 0.5, y: 0.5, z: 0 })
+          landmarks[33] = { x: 0.3, y: 0.5, z: 0 }
+          landmarks[263] = { x: 0.7, y: 0.5, z: 0 }
+          const angle = PostureCalculator.calculateHeadTilt(landmarks)
+          return Math.abs(angle) < 1
+        })
+
+        // App state tests
+        if (window.posturamaApp) {
+          runTest('App has correct default threshold', () => {
+            return window.posturamaApp.threshold === 15
+          })
+
+          runTest('App not monitoring by default', () => {
+            return window.posturamaApp.isMonitoring === false
+          })
+
+          runTest('Audio system initialized', () => {
+            return window.posturamaApp.audioAlert !== null
+          })
+        }
+
+        // Summary
+        log('', '')
+        log(`Tests completed: ${testsPassed} passed, ${testsFailed} failed`, 'info')
+
+        if (testsFailed === 0) {
+          log('✅ All tests passed! The app should work correctly.', 'pass')
+          log('', '')
+          log('The error "Cannot read properties of undefined" has been fixed.', 'pass')
+          log('GracePeriod and AudioAlert are now proper modules.', 'pass')
+        } else {
+          log('❌ Some tests failed. Check the errors above.', 'fail')
+        }
+
+        // Show actual app state
+        log('', '')
+        log('App State:', 'info')
+        const pre = document.createElement('pre')
+        pre.textContent = JSON.stringify(
+          {
+            mediaPipeReady: window.mediaPipeReady,
+            gracePeriodAvailable: typeof window.GracePeriod !== 'undefined',
+            audioAlertAvailable: typeof window.AudioAlert !== 'undefined',
+            appCreated: typeof window.posturamaApp !== 'undefined',
+            appMonitoring: window.posturamaApp?.isMonitoring,
+            audioReady: window.posturamaApp?.audioAlert?.isReady,
+          },
+          null,
+          2,
+        )
+        results.appendChild(pre)
+      })
+    </script>
+  </body>
+</html>
