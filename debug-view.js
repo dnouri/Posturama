@@ -1,71 +1,131 @@
 /**
  * Debug View Module
  * Provides visual debugging overlay for posture detection
+ * Two states: off ↔ expanded
  */
 
 class DebugView {
   constructor() {
-    this.isVisible = false
-    this.overlay = null
+    this.state = 'off' // off | expanded
+    this.container = null
     this.canvas = null
     this.ctx = null
-    this.metricsPanel = null
     this.frameTimes = []
     this.lastFrameTime = 0
-    this.isInitialized = false
-
-    // Store references for cleanup
-    this.animationId = null
-    this.updateCallback = null
+    // Store original window dimensions for restoration
+    this.originalOuterWidth = null
+    this.originalOuterHeight = null
   }
 
-  initialize() {
-    if (this.isInitialized) return
-
-    this.createOverlay()
-    this.createCanvas()
-    this.createMetricsPanel()
-    this.setupEventListeners()
-
-    this.isInitialized = true
+  toggle() {
+    if (this.state === 'off') {
+      this.show()
+    } else {
+      this.hide()
+    }
   }
 
-  createOverlay() {
-    this.overlay = document.createElement('div')
-    this.overlay.className = 'debug-overlay'
-    this.overlay.style.cssText = `
+  show() {
+    this.state = 'expanded'
+    this.cleanupExisting()
+
+    // Store original dimensions before resizing
+    this.originalOuterWidth = window.outerWidth
+    this.originalOuterHeight = window.outerHeight
+
+    // Calculate browser chrome to ensure proper content area
+    const chromeHeight = window.outerHeight - window.innerHeight
+    const chromeWidth = window.outerWidth - window.innerWidth
+    // Resize to ensure 600px of content area for debug
+    window.resizeTo(500 + chromeWidth, 600 + chromeHeight)
+    this.createExpandedView()
+  }
+
+  hide() {
+    this.state = 'off'
+    this.cleanupExisting()
+
+    // Restore original window dimensions
+    if (this.originalOuterWidth !== null && this.originalOuterHeight !== null) {
+      window.resizeTo(this.originalOuterWidth, this.originalOuterHeight)
+    } else {
+      // Fallback to default dimensions if original not captured
+      // This should never happen, but log it if it does
+      console.warn('Original dimensions not captured, using defaults')
+      window.resizeTo(250, 400)
+    }
+  }
+
+  cleanupExisting() {
+    // Remove any existing debug container
+    const existing = document.querySelector('.debug-overlay-expanded')
+    if (existing) {
+      existing.remove()
+    }
+
+    // Clear references
+    this.container = null
+    this.canvas = null
+    this.ctx = null
+  }
+
+  createExpandedView() {
+    this.container = document.createElement('div')
+    this.container.className = 'debug-overlay-expanded'
+    this.container.style.cssText = `
       position: fixed;
       top: 0;
       left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.9);
-      z-index: 10000;
-      display: none;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.95);
+      display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
+      z-index: 10000;
     `
-    document.body.appendChild(this.overlay)
-  }
 
-  createCanvas() {
-    // Container for video and canvas
-    const container = document.createElement('div')
-    container.style.cssText = `
+    // Video container
+    const videoContainer = document.createElement('div')
+    videoContainer.style.cssText = `
       position: relative;
-      width: 640px;
-      height: 480px;
+      width: 480px;
+      height: 360px;
       background: #000;
       border: 2px solid #00ff00;
       border-radius: 8px;
       overflow: hidden;
     `
 
-    // Create canvas for overlay
+    // Create video clone
+    const video = document.getElementById('webcam')
+    if (video && video.srcObject) {
+      const videoClone = document.createElement('video')
+      videoClone.style.cssText = `
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      `
+      videoClone.autoplay = true
+      videoClone.playsInline = true
+      videoClone.muted = true
+      videoContainer.appendChild(videoClone)
+
+      // Set srcObject after element is in DOM
+      setTimeout(() => {
+        if (video.srcObject && videoClone) {
+          videoClone.srcObject = video.srcObject
+          videoClone.play()
+        }
+      }, 0)
+    }
+
+    // Canvas for overlay
     this.canvas = document.createElement('canvas')
-    this.canvas.width = 640
-    this.canvas.height = 480
+    this.canvas.className = 'debug-canvas-expanded'
+    this.canvas.width = 480
+    this.canvas.height = 360
     this.canvas.style.cssText = `
       position: absolute;
       top: 0;
@@ -74,36 +134,13 @@ class DebugView {
       height: 100%;
       pointer-events: none;
     `
-
     this.ctx = this.canvas.getContext('2d')
-    container.appendChild(this.canvas)
+    videoContainer.appendChild(this.canvas)
 
-    // Add video element (will be positioned behind canvas)
-    const video = document.getElementById('webcam')
-    if (video) {
-      const videoClone = video.cloneNode()
-      videoClone.style.cssText = `
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-      `
-      videoClone.id = 'debug-video'
-      container.insertBefore(videoClone, this.canvas)
-      videoClone.srcObject = video.srcObject
-    }
-
-    this.overlay.appendChild(container)
-  }
-
-  createMetricsPanel() {
-    this.metricsPanel = document.createElement('div')
-    this.metricsPanel.style.cssText = `
-      position: absolute;
-      top: 20px;
-      left: 20px;
+    // Metrics panel
+    const metricsPanel = document.createElement('div')
+    metricsPanel.style.cssText = `
+      margin-top: 20px;
       background: rgba(0, 0, 0, 0.8);
       color: #00ff00;
       padding: 15px;
@@ -111,34 +148,19 @@ class DebugView {
       font-size: 14px;
       border: 1px solid #00ff00;
       border-radius: 4px;
-      min-width: 200px;
+      min-width: 300px;
     `
-
-    this.metricsPanel.innerHTML = `
+    metricsPanel.innerHTML = `
       <div style="font-weight: bold; margin-bottom: 10px;">DEBUG METRICS</div>
-      <div id="debug-fps">FPS: --</div>
-      <div id="debug-angle">Angle: --°</div>
-      <div id="debug-threshold">Threshold: --°</div>
-      <div id="debug-posture">Posture: --</div>
-      <div id="debug-landmarks">Landmarks: --</div>
-      <div id="debug-grace">Grace: --</div>
+      <div>FPS: <span class="debug-fps-value">0</span></div>
+      <div>Angle: <span class="debug-angle-value">0</span>°</div>
+      <div>Threshold: <span class="debug-threshold-value">5</span>°</div>
+      <div>Posture: <span class="debug-posture-value">detecting</span></div>
+      <div>Landmarks: <span class="debug-landmarks-value">0</span></div>
+      <div>Grace: <span class="debug-grace-value">--</span></div>
     `
 
-    this.overlay.appendChild(this.metricsPanel)
-  }
-
-  setupEventListeners() {
-    // Close on ESC or click
-    const closeHandler = (e) => {
-      if (e.type === 'keydown' && e.key !== 'Escape') return
-      if (e.type === 'click' && e.target !== this.overlay) return
-      this.hide()
-    }
-
-    this.overlay.addEventListener('click', closeHandler)
-    document.addEventListener('keydown', closeHandler)
-
-    // Add close button
+    // Close button
     const closeBtn = document.createElement('button')
     closeBtn.textContent = '✕ Close Debug'
     closeBtn.style.cssText = `
@@ -154,73 +176,18 @@ class DebugView {
       border-radius: 4px;
     `
     closeBtn.onclick = () => this.hide()
-    this.overlay.appendChild(closeBtn)
-  }
 
-  show() {
-    if (!this.isInitialized) {
-      this.initialize()
-    }
+    this.container.appendChild(videoContainer)
+    this.container.appendChild(metricsPanel)
+    this.container.appendChild(closeBtn)
 
-    this.overlay.style.display = 'flex'
-    this.isVisible = true
-
-    // Start render loop
-    this.startRenderLoop()
-  }
-
-  hide() {
-    if (this.overlay) {
-      this.overlay.style.display = 'none'
-    }
-    this.isVisible = false
-
-    // Stop render loop
-    this.stopRenderLoop()
-  }
-
-  startRenderLoop() {
-    const render = (timestamp) => {
-      if (!this.isVisible) return
-
-      // Track frame times for FPS
-      if (this.lastFrameTime > 0) {
-        this.frameTimes.push(timestamp)
-        // Keep only last 60 frame times
-        if (this.frameTimes.length > 60) {
-          this.frameTimes.shift()
-        }
-      }
-      this.lastFrameTime = timestamp
-
-      // Request next frame
-      this.animationId = requestAnimationFrame(render)
-    }
-
-    this.animationId = requestAnimationFrame(render)
-  }
-
-  stopRenderLoop() {
-    if (this.animationId) {
-      cancelAnimationFrame(this.animationId)
-      this.animationId = null
-    }
+    document.body.appendChild(this.container)
   }
 
   updateVisualization(data) {
-    if (!this.isVisible || !this.ctx) return
+    if (this.state === 'off' || !this.container) return
 
     const { landmarks, angle, threshold, postureState, gracePeriod } = data
-
-    // Clear canvas
-    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
-
-    // Draw landmarks
-    if (landmarks && landmarks.length > 0) {
-      this.drawLandmarks(landmarks)
-      this.drawAngleVisualization(landmarks, angle)
-      this.drawThresholdZone(angle, threshold)
-    }
 
     // Update metrics
     this.updateMetrics({
@@ -231,35 +198,95 @@ class DebugView {
       landmarkCount: landmarks ? landmarks.length : 0,
       gracePeriod,
     })
+
+    // Draw visualization
+    if (this.ctx && this.canvas) {
+      this.drawVisualization(landmarks, angle, threshold)
+    }
   }
 
-  drawLandmarks(landmarks) {
+  updateMetrics(data) {
+    if (!this.container) return
+
+    // Update all metrics
+    const fpsEl = this.container.querySelector('.debug-fps-value')
+    if (fpsEl) fpsEl.textContent = data.fps || 0
+
+    const angleEl = this.container.querySelector('.debug-angle-value')
+    if (angleEl) angleEl.textContent = data.angle ? data.angle.toFixed(1) : '0'
+
+    const thresholdEl = this.container.querySelector('.debug-threshold-value')
+    if (thresholdEl) thresholdEl.textContent = data.threshold || 5
+
+    const postureEl = this.container.querySelector('.debug-posture-value')
+    if (postureEl) postureEl.textContent = data.postureState || 'detecting'
+
+    const landmarksEl = this.container.querySelector('.debug-landmarks-value')
+    if (landmarksEl) landmarksEl.textContent = data.landmarkCount
+
+    const graceEl = this.container.querySelector('.debug-grace-value')
+    if (graceEl) {
+      let graceText = ''
+      if (data.gracePeriod) {
+        graceText = data.gracePeriod.isInGracePeriod
+          ? 'Active'
+          : data.gracePeriod.shouldAlert
+            ? 'Alert!'
+            : 'Inactive'
+      } else {
+        graceText = '--'
+      }
+      graceEl.textContent = graceText
+    }
+  }
+
+  drawVisualization(landmarks, angle, threshold) {
+    if (!this.ctx || !this.canvas) return
+
+    const width = this.canvas.width
+    const height = this.canvas.height
+
+    // Clear canvas
+    this.ctx.clearRect(0, 0, width, height)
+
+    if (!landmarks || landmarks.length === 0) return
+
     const ctx = this.ctx
 
+    // Draw all landmarks with reduced opacity
     landmarks.forEach((landmark, index) => {
-      const point = this.landmarkToCanvas(landmark)
-      const color = this.getLandmarkColor(index)
-      const size = index === 33 || index === 263 ? 4 : 2 // Bigger dots for eyes
+      const x = landmark.x * width
+      const y = landmark.y * height
 
-      ctx.fillStyle = color
-      ctx.beginPath()
-      ctx.arc(point.x, point.y, size, 0, Math.PI * 2)
-      ctx.fill()
+      // Highlight eye landmarks
+      if (index === 33 || index === 263) {
+        ctx.fillStyle = '#00ff00'
+        ctx.beginPath()
+        ctx.arc(x, y, 4, 0, Math.PI * 2)
+        ctx.fill()
+
+        // Label eyes
+        ctx.fillStyle = '#00ff00'
+        ctx.font = '12px monospace'
+        ctx.fillText(index === 33 ? 'L' : 'R', x - 10, y - 10)
+      } else {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.2)'
+        ctx.beginPath()
+        ctx.arc(x, y, 1, 0, Math.PI * 2)
+        ctx.fill()
+      }
     })
 
-    // Draw connections (simplified face mesh)
-    this.drawConnections(landmarks)
-  }
-
-  drawConnections(landmarks) {
-    const ctx = this.ctx
-    ctx.strokeStyle = '#ffffff30'
-    ctx.lineWidth = 1
-
-    // Draw line between eyes (our main measurement)
+    // Draw eye connection line
     if (landmarks[33] && landmarks[263]) {
-      const leftEye = this.landmarkToCanvas(landmarks[33])
-      const rightEye = this.landmarkToCanvas(landmarks[263])
+      const leftEye = {
+        x: landmarks[33].x * width,
+        y: landmarks[33].y * height,
+      }
+      const rightEye = {
+        x: landmarks[263].x * width,
+        y: landmarks[263].y * height,
+      }
 
       ctx.strokeStyle = '#00ff00'
       ctx.lineWidth = 2
@@ -268,151 +295,54 @@ class DebugView {
       ctx.lineTo(rightEye.x, rightEye.y)
       ctx.stroke()
 
-      // Add labels
-      ctx.fillStyle = '#00ff00'
-      ctx.font = '12px monospace'
-      ctx.fillText('L', leftEye.x - 15, leftEye.y - 5)
-      ctx.fillText('R', rightEye.x + 5, rightEye.y - 5)
+      // Draw horizontal reference
+      ctx.strokeStyle = 'rgba(255, 255, 0, 0.3)'
+      ctx.lineWidth = 1
+      ctx.setLineDash([5, 5])
+      ctx.beginPath()
+      ctx.moveTo(0, leftEye.y)
+      ctx.lineTo(width, leftEye.y)
+      ctx.stroke()
+      ctx.setLineDash([])
+
+      // Draw angle arc
+      const centerX = (leftEye.x + rightEye.x) / 2
+      const centerY = (leftEye.y + rightEye.y) / 2
+      const radius = 50
+
+      ctx.strokeStyle = Math.abs(angle) <= threshold ? '#00ff00' : '#ff0000'
+      ctx.lineWidth = 2
+      ctx.beginPath()
+      ctx.arc(centerX, centerY, radius, 0, (angle * Math.PI) / 180)
+      ctx.stroke()
+
+      // Draw angle text
+      ctx.fillStyle = ctx.strokeStyle
+      ctx.font = 'bold 16px monospace'
+      ctx.fillText(`${angle.toFixed(1)}°`, centerX - 20, centerY - radius - 10)
     }
-  }
-
-  drawAngleVisualization(landmarks, angle) {
-    if (!landmarks[33] || !landmarks[263]) return
-
-    const ctx = this.ctx
-    const leftEye = this.landmarkToCanvas(landmarks[33])
-    const rightEye = this.landmarkToCanvas(landmarks[263])
-
-    // Draw horizontal reference line
-    ctx.strokeStyle = '#ffff0050'
-    ctx.lineWidth = 1
-    ctx.setLineDash([5, 5])
-    ctx.beginPath()
-    ctx.moveTo(0, leftEye.y)
-    ctx.lineTo(this.canvas.width, leftEye.y)
-    ctx.stroke()
-    ctx.setLineDash([])
-
-    // Draw angle arc
-    const centerX = (leftEye.x + rightEye.x) / 2
-    const centerY = (leftEye.y + rightEye.y) / 2
-    const radius = 50
-
-    ctx.strokeStyle = angle > 15 || angle < -15 ? '#ff0000' : '#00ff00'
-    ctx.lineWidth = 2
-    ctx.beginPath()
-    ctx.arc(centerX, centerY, radius, 0, (angle * Math.PI) / 180)
-    ctx.stroke()
-
-    // Draw angle text
-    ctx.fillStyle = ctx.strokeStyle
-    ctx.font = 'bold 16px monospace'
-    ctx.fillText(`${angle.toFixed(1)}°`, centerX - 20, centerY - radius - 10)
-  }
-
-  drawThresholdZone(angle, threshold) {
-    const ctx = this.ctx
-    const centerX = this.canvas.width / 2
-    const bottomY = this.canvas.height - 50
-
-    // Draw threshold indicator bar
-    const barWidth = 200
-    const barHeight = 20
-    const barX = centerX - barWidth / 2
-
-    // Background
-    ctx.fillStyle = '#ffffff20'
-    ctx.fillRect(barX, bottomY, barWidth, barHeight)
-
-    // Threshold zones
-    const thresholdWidth = (threshold / 30) * barWidth
-    ctx.fillStyle = '#00ff0050'
-    ctx.fillRect(centerX - thresholdWidth / 2, bottomY, thresholdWidth, barHeight)
-
-    // Current angle position
-    const anglePos = (angle / 30) * (barWidth / 2)
-    ctx.fillStyle = Math.abs(angle) <= threshold ? '#00ff00' : '#ff0000'
-    ctx.fillRect(centerX + anglePos - 2, bottomY - 5, 4, barHeight + 10)
-
-    // Labels
-    ctx.fillStyle = '#ffffff'
-    ctx.font = '10px monospace'
-    ctx.fillText('-30°', barX - 25, bottomY + 15)
-    ctx.fillText('0°', centerX - 5, bottomY + 35)
-    ctx.fillText('+30°', barX + barWidth + 5, bottomY + 15)
-  }
-
-  landmarkToCanvas(landmark) {
-    return {
-      x: landmark.x * this.canvas.width,
-      y: landmark.y * this.canvas.height,
-    }
-  }
-
-  getLandmarkColor(index) {
-    // Eye landmarks (important for our app)
-    if (index === 33 || index === 263) {
-      return '#00ff00'
-    }
-    // Face oval
-    if (index < 17) {
-      return '#ffff00'
-    }
-    // Other landmarks
-    return '#ffffff40'
   }
 
   calculateFPS() {
+    const now = Date.now()
+    this.frameTimes.push(now)
+
+    // Keep only last 60 frames
+    if (this.frameTimes.length > 60) {
+      this.frameTimes.shift()
+    }
+
     if (this.frameTimes.length < 2) return 0
 
-    const recentFrames = this.frameTimes.slice(-30)
-    if (recentFrames.length < 2) return 0
-
-    const duration = recentFrames[recentFrames.length - 1] - recentFrames[0]
-    const frameCount = recentFrames.length - 1
+    const duration = this.frameTimes[this.frameTimes.length - 1] - this.frameTimes[0]
+    const frameCount = this.frameTimes.length - 1
 
     return Math.round((frameCount / duration) * 1000)
   }
 
-  updateMetrics(data) {
-    if (!this.metricsPanel) return
-
-    document.getElementById('debug-fps').textContent = `FPS: ${data.fps || 0}`
-    document.getElementById('debug-angle').textContent =
-      `Angle: ${data.angle ? data.angle.toFixed(1) : '--'}°`
-    document.getElementById('debug-threshold').textContent = `Threshold: ${data.threshold || 5}°`
-    document.getElementById('debug-posture').textContent =
-      `Posture: ${data.postureState || 'unknown'}`
-    document.getElementById('debug-landmarks').textContent = `Landmarks: ${data.landmarkCount}`
-
-    // Grace period status
-    let graceText = 'Grace: '
-    if (data.gracePeriod) {
-      if (data.gracePeriod.isInGracePeriod) {
-        graceText += 'Active'
-      } else if (data.gracePeriod.shouldAlert) {
-        graceText += 'Alert!'
-      } else {
-        graceText += 'Inactive'
-      }
-    } else {
-      graceText += '--'
-    }
-    document.getElementById('debug-grace').textContent = graceText
-  }
-
-  dispose() {
-    this.stopRenderLoop()
-
-    if (this.overlay && this.overlay.parentNode) {
-      this.overlay.parentNode.removeChild(this.overlay)
-    }
-
-    this.overlay = null
-    this.canvas = null
-    this.ctx = null
-    this.metricsPanel = null
-    this.isInitialized = false
+  // Getter for compatibility
+  get isVisible() {
+    return this.state !== 'off'
   }
 }
 

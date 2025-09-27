@@ -7,7 +7,6 @@ class PosturamaApp {
   constructor() {
     // DOM Elements
     this.widget = document.getElementById('posture-widget')
-    this.dragHandle = document.querySelector('.drag-handle')
     this.video = document.getElementById('webcam')
     this.statusIcon = document.querySelector('.status-icon')
     this.statusText = document.querySelector('.status-text')
@@ -17,19 +16,13 @@ class PosturamaApp {
     this.toggleBtn = document.querySelector('.btn-toggle')
     this.muteBtn = document.querySelector('.btn-mute')
     this.debugBtn = document.querySelector('.btn-debug')
-    this.minimizeBtn = document.querySelector('.btn-minimize')
 
     // State
     this.isMonitoring = false
     this.isMuted = false
-    this.isMinimized = false
-    this.threshold = window.POSTURE_CONFIG ? window.POSTURE_CONFIG.DEFAULT_THRESHOLD : 5
+    this.threshold = 5
     this.currentAngle = 0
     this.postureState = 'detecting'
-
-    // Drag state
-    this.isDragging = false
-    this.dragOffset = { x: 0, y: 0 }
 
     // Face detection
     this.faceDetector = null
@@ -46,7 +39,6 @@ class PosturamaApp {
   }
 
   async init() {
-    this.setupDragAndDrop()
     this.setupControls()
     this.updateStatus('detecting', 'Click ▶ to start')
 
@@ -55,92 +47,6 @@ class PosturamaApp {
       this.audioAlert = new window.AudioAlert()
       await this.audioAlert.initialize()
       console.log('Audio system initialized:', this.audioAlert.isReady)
-    }
-  }
-
-  // Drag and Drop Implementation
-  setupDragAndDrop() {
-    // Start dragging
-    this.dragHandle.addEventListener('mousedown', (e) => {
-      // Don't start drag if clicking minimize button
-      if (e.target === this.minimizeBtn) return
-
-      this.isDragging = true
-      this.widget.classList.add('dragging')
-
-      // Calculate offset from mouse to widget corner
-      const rect = this.widget.getBoundingClientRect()
-      this.dragOffset.x = e.clientX - rect.left
-      this.dragOffset.y = e.clientY - rect.top
-
-      // Prevent text selection while dragging
-      e.preventDefault()
-    })
-
-    // Move widget
-    document.addEventListener('mousemove', (e) => {
-      if (!this.isDragging) return
-
-      // Calculate new position
-      let newX = e.clientX - this.dragOffset.x
-      let newY = e.clientY - this.dragOffset.y
-
-      // Keep widget within viewport
-      const rect = this.widget.getBoundingClientRect()
-      const maxX = window.innerWidth - rect.width
-      const maxY = window.innerHeight - rect.height
-
-      newX = Math.max(0, Math.min(newX, maxX))
-      newY = Math.max(0, Math.min(newY, maxY))
-
-      // Apply position
-      this.widget.style.left = `${newX}px`
-      this.widget.style.top = `${newY}px`
-      this.widget.style.right = 'auto'
-      this.widget.style.bottom = 'auto'
-    })
-
-    // Stop dragging
-    document.addEventListener('mouseup', () => {
-      if (this.isDragging) {
-        this.isDragging = false
-        this.widget.classList.remove('dragging')
-      }
-    })
-
-    // Handle window resize
-    window.addEventListener('resize', () => {
-      this.keepWidgetInViewport()
-    })
-  }
-
-  keepWidgetInViewport() {
-    const rect = this.widget.getBoundingClientRect()
-    let adjusted = false
-
-    // Check if widget is outside viewport
-    if (rect.right > window.innerWidth) {
-      this.widget.style.left = `${window.innerWidth - rect.width - 20}px`
-      this.widget.style.right = 'auto'
-      adjusted = true
-    }
-
-    if (rect.bottom > window.innerHeight) {
-      this.widget.style.top = `${window.innerHeight - rect.height - 20}px`
-      this.widget.style.bottom = 'auto'
-      adjusted = true
-    }
-
-    if (rect.left < 0) {
-      this.widget.style.left = '20px'
-      this.widget.style.right = 'auto'
-      adjusted = true
-    }
-
-    if (rect.top < 0) {
-      this.widget.style.top = '20px'
-      this.widget.style.bottom = 'auto'
-      adjusted = true
     }
   }
 
@@ -176,11 +82,6 @@ class PosturamaApp {
     // Debug view
     this.debugBtn.addEventListener('click', () => {
       this.openDebugView()
-    })
-
-    // Minimize toggle
-    this.minimizeBtn.addEventListener('click', () => {
-      this.toggleMinimize()
     })
   }
 
@@ -387,30 +288,51 @@ class PosturamaApp {
   handleCameraError(error) {
     console.error('Camera error:', error)
 
-    let message = 'Camera error'
-    let icon = '❌'
-
     if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-      message = 'Camera permission denied'
-      icon = '🔒'
-      console.log('Please allow camera access in your browser settings')
+      // Show error overlay without destroying DOM
+      const errorOverlay = document.createElement('div')
+      errorOverlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: var(--color-background);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+      `
+      errorOverlay.innerHTML = `
+        <div style="padding: 2rem; text-align: center; color: #f3f4f6;">
+          <h2 style="margin: 0 0 1rem 0; color: #ef4444;">🔒 Camera Access Required</h2>
+          <p style="margin: 0 0 1rem 0; line-height: 1.5;">
+            Posturama needs camera access to monitor your posture.
+          </p>
+          <p style="margin: 0 0 1.5rem 0; color: #9ca3af; font-size: 0.9em;">
+            Please close this window, grant camera permission when prompted, and try again.
+          </p>
+          <button onclick="window.close()"
+            style="background: #ef4444; color: white; border: none; padding: 0.75rem 1.5rem;
+                   border-radius: 8px; cursor: pointer; font-size: 1rem;">
+            Close Window
+          </button>
+        </div>
+      `
+      document.body.appendChild(errorOverlay)
     } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
-      message = 'No camera found'
-      icon = '📷'
+      this.statusIcon.textContent = '📷'
+      this.statusText.textContent = 'No camera found'
+      this.widget.setAttribute('data-posture', 'detecting')
     } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
-      message = 'Camera is in use'
-      icon = '⚠️'
-    } else if (
-      error.name === 'OverconstrainedError' ||
-      error.name === 'ConstraintNotSatisfiedError'
-    ) {
-      message = 'Camera requirements not met'
-      icon = '⚙️'
+      this.statusIcon.textContent = '⚠️'
+      this.statusText.textContent = 'Camera is in use'
+      this.widget.setAttribute('data-posture', 'detecting')
+    } else {
+      this.statusIcon.textContent = '❌'
+      this.statusText.textContent = 'Camera error'
+      this.widget.setAttribute('data-posture', 'detecting')
     }
-
-    this.statusIcon.textContent = icon
-    this.statusText.textContent = message
-    this.widget.setAttribute('data-posture', 'detecting')
   }
 
   // UI Updates
@@ -432,13 +354,9 @@ class PosturamaApp {
     // Update angle display
     if (angle !== null) {
       this.angleDisplay.textContent = `Angle: ${angle.toFixed(1)}°`
+    } else {
+      this.angleDisplay.innerHTML = '&nbsp;'
     }
-  }
-
-  toggleMinimize() {
-    this.isMinimized = !this.isMinimized
-    this.widget.classList.toggle('minimized', this.isMinimized)
-    this.minimizeBtn.textContent = this.isMinimized ? '□' : '_'
   }
 
   openDebugView() {
@@ -448,17 +366,14 @@ class PosturamaApp {
     }
 
     if (this.debugView) {
-      this.debugView.show()
-      this.debugBtn.classList.add('active')
+      this.debugView.toggle()
 
-      // Update button state when debug view is closed
-      const originalHide = this.debugView.hide.bind(this.debugView)
-      this.debugView.hide = () => {
-        originalHide()
+      // Update button active state based on debug view state
+      if (this.debugView.state === 'off') {
         this.debugBtn.classList.remove('active')
+      } else {
+        this.debugBtn.classList.add('active')
       }
-    } else {
-      console.warn('Debug view not available')
     }
   }
 
